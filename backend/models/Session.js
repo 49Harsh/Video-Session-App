@@ -14,6 +14,14 @@ const sessionSchema = new mongoose.Schema({
   userurl: {
     type: String,
     required: true
+  },
+  agoraChannelName: {
+    type: String,
+    required: true
+  },
+  isActive: {
+    type: Boolean,
+    default: true
   }
 }, {
   timestamps: true

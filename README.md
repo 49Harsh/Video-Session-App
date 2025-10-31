@@ -1,28 +1,27 @@
-# Live Video Sessions Application
+# Screen Sharing Platform with Agora
 
-A full-stack web application for creating and managing live video sessions with React.js frontend and Node.js backend.
+A full-stack web application for real-time screen sharing using Agora RTC SDK. Host can share their screen with viewers through a unique shareable link.
 
 ## 🚀 Features
 
-- **Admin Dashboard**: Create sessions with a single click
-- **Session Management**: Automatically generate unique session IDs and URLs
-- **Video Player**: Full-featured video player with:
-  - Play/Pause controls
-  - Volume control
-  - Progress bar with seek functionality
-  - Fullscreen mode
-  - Playback speed control (0.5x, 1x, 1.5x, 2x)
-  - Audio/Video settings
-- **Student Access**: Students can join sessions using unique URLs
+- **Host Dashboard**: Create screen sharing sessions with one click
+- **Real-Time Screen Sharing**: Share your screen instantly using Agora RTC
+- **Audio Support**: Includes microphone audio during screen sharing
+- **Unique Session URLs**: Each session gets a unique shareable URL
+- **Multiple Viewers**: Support for unlimited viewers per session
+- **Automatic Reconnection**: Robust error handling and connection management
 - **MongoDB Database**: Persistent session storage
+- **Responsive Design**: Works on desktop and mobile devices
 
 ## 📋 Prerequisites
 
-Before running this application, make sure you have the following installed:
+Before running this application, make sure you have the following:
 
 - **Node.js** (v16 or higher) - [Download](https://nodejs.org/)
 - **MongoDB** (v4.4 or higher) - [Download](https://www.mongodb.com/try/download/community)
 - **npm** or **yarn** package manager
+- **Agora Account** - Sign up at [Agora.io](https://www.agora.io/) to get App ID and Certificate
+- **Modern Browser** - Chrome, Firefox, or Edge (for screen sharing support)
 
 ## 🛠️ Installation & Setup
 
@@ -77,25 +76,24 @@ The frontend will run on `http://localhost:3000`
 
 ## 🎯 Usage
 
-### Admin/Host:
+### Host:
 
 1. Open your browser and navigate to `http://localhost:3000`
 2. Click the **START SESSION** button
-3. A new session will be created with a unique ID
-4. Copy the generated session URL
-5. Share the URL with students/users
-6. The video player will appear with full controls
+3. A new session will be created with a unique ID and URL
+4. **IMPORTANT**: Grant screen sharing permissions when prompted by your browser
+5. Your screen will automatically start sharing
+6. Copy the generated session URL using the **Copy URL** button
+7. Share the URL with viewers who want to watch your screen
+8. Use **Stop Sharing** button to end screen sharing
 
-### Student/User:
+### Viewer:
 
-1. Open the session URL shared by the admin (e.g., `http://localhost:3000/session/abc-123-xyz`)
-2. The video player will load automatically
-3. Full controls are available:
-   - Play/Pause
-   - Volume adjustment
-   - Seek through video
-   - Fullscreen mode
-   - Settings (playback speed)
+1. Open the session URL shared by the host (e.g., `http://localhost:3000/session/abc-123-xyz`)
+2. Wait for the host to start sharing their screen
+3. The shared screen will appear automatically
+4. Audio from the host's microphone will also be streamed
+5. You can watch in fullscreen by clicking the fullscreen button (if available)
 
 ## 📁 Project Structure
 
@@ -187,6 +185,22 @@ MONGODB_URI=mongodb://localhost:27017/live_sessions
 - Backend already configured with CORS
 - Check `backend/server.js` if issues persist
 
+### Screen Sharing Permission Denied
+- Make sure to allow screen sharing when prompted
+- Check browser settings for screen capture permissions
+- Try using Chrome or Edge (best compatibility)
+
+### Agora Connection Issues
+- Verify your Agora App ID and Certificate in `backend/.env`
+- Check console logs for specific Agora error messages
+- Ensure firewall allows WebRTC connections
+
+### Screen Not Appearing for Viewers
+- Make sure host has started sharing
+- Check browser console for connection errors
+- Verify both host and viewer are using valid tokens
+- Try refreshing the viewer page
+
 ## 📦 Dependencies
 
 ### Backend
@@ -195,12 +209,14 @@ MONGODB_URI=mongodb://localhost:27017/live_sessions
 - `uuid` - Generate unique IDs
 - `dotenv` - Environment variables
 - `cors` - Cross-origin resource sharing
+- `agora-access-token` - Agora RTC token generation
 
 ### Frontend
 - `react` - UI library
 - `react-router-dom` - Routing
 - `axios` - HTTP client
 - `vite` - Build tool
+- `agora-rtc-sdk-ng` - Agora RTC SDK for screen sharing
 
 ## 🚀 Production Deployment
 

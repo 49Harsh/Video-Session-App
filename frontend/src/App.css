@@ -277,6 +277,108 @@ h2 {
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* Screen Sharing Specific Styles */
+.screen-share-container {
+  width: 100%;
+  min-height: 600px;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.screen-share-container .controls {
+  padding: 20px;
+  background: #2a2a2a;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.screen-share-container .controls button {
+  padding: 12px 24px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.screen-share-container .controls button.stop-button {
+  background: #dc3545;
+}
+
+.screen-share-container .controls button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.screen-share-container .controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.screen-share-container .status-text {
+  color: #fff;
+  font-size: 14px;
+  margin: 0;
+}
+
+.screen-share-container .remote-videos {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  min-height: 500px;
+  background: #000;
+}
+
+.screen-share-container .video-player {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  background: #000;
+  border-radius: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.screen-share-container .waiting-message {
+  text-align: center;
+  color: #fff;
+  padding: 40px;
+}
+
+.screen-share-container .waiting-message h2 {
+  color: #fff;
+  font-size: 1.8rem;
+  margin-bottom: 15px;
+}
+
+.screen-share-container .waiting-message p {
+  color: #aaa;
+  font-size: 1.1rem;
+}
+
+.screen-share-container .error-message {
+  background: #dc3545;
+  color: white;
+  padding: 15px;
+  margin: 20px;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
   h1 {
     font-size: 1.8rem;
@@ -289,5 +391,22 @@ h2 {
 
   .volume-slider {
     width: 50px;
+  }
+  
+  .screen-share-container .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .screen-share-container .controls button {
+    width: 100%;
+  }
+  
+  .screen-share-container .waiting-message h2 {
+    font-size: 1.4rem;
+  }
+  
+  .screen-share-container .waiting-message p {
+    font-size: 0.9rem;
   }
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
-import VideoPlayer from '../components/VideoPlayer'
+import ScreenSharePlayer from '../components/ScreenSharePlayer'
 
 const API_URL = 'http://localhost:5000/api'
 
@@ -10,17 +10,31 @@ function SessionPage() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [agoraToken, setAgoraToken] = useState(null)
+  const [appId, setAppId] = useState(null)
 
   useEffect(() => {
     const fetchSession = async () => {
       try {
-        const response = await axios.get(`${API_URL}/sessions/${uniqueId}`)
+        // Get session details
+        const sessionResponse = await axios.get(`${API_URL}/sessions/${uniqueId}`)
         
-        if (response.data.success) {
-          setSession(response.data.session)
+        if (sessionResponse.data.success) {
+          const sessionData = sessionResponse.data.session
+          setSession(sessionData)
+          
+          // Get Agora token for viewer
+          const tokenResponse = await axios.post(`${API_URL}/sessions/token`, {
+            channelName: sessionData.agoraChannelName,
+            role: 'viewer'
+          })
+          
+          setAgoraToken(tokenResponse.data.token)
+          setAppId(tokenResponse.data.appId)
         }
       } catch (err) {
         setError(err.response?.data?.error || 'Session not found')
+        console.error('Error fetching session:', err)
       } finally {
         setLoading(false)
       }
@@ -48,13 +62,20 @@ function SessionPage() {
 
   return (
     <div className="container">
-      <h1>Live Video Session - Student View</h1>
+      <h1>Screen Sharing Session - Viewer</h1>
       <div className="session-info">
         <p><strong>Session ID:</strong> {session.unique_id}</p>
-        <p><strong>Status:</strong> <span className="status-active">Active</span></p>
+        <p><strong>Status:</strong> <span className="status-active">🟢 Active</span></p>
       </div>
       
-      <VideoPlayer />
+      {agoraToken && appId && (
+        <ScreenSharePlayer
+          channelName={session.agoraChannelName}
+          role="viewer"
+          appId={appId}
+          token={agoraToken}
+        />
+      )}
     </div>
   )
 }
