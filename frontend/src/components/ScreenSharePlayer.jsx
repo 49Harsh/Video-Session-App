@@ -142,17 +142,46 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
   };
 
   const stopScreenShare = async () => {
-    if (localVideoTrackRef.current) {
-      localVideoTrackRef.current.stop();
-      localVideoTrackRef.current.close();
-      localVideoTrackRef.current = null;
+    try {
+      // First unpublish tracks from Agora
+      const tracksToUnpublish = [];
+      if (localVideoTrackRef.current) tracksToUnpublish.push(localVideoTrackRef.current);
+      if (localAudioTrackRef.current) tracksToUnpublish.push(localAudioTrackRef.current);
+      
+      if (tracksToUnpublish.length > 0 && clientRef.current) {
+        await clientRef.current.unpublish(tracksToUnpublish);
+        console.log('✅ Unpublished tracks');
+      }
+
+      // Then stop and close tracks
+      if (localVideoTrackRef.current) {
+        localVideoTrackRef.current.stop();
+        localVideoTrackRef.current.close();
+        localVideoTrackRef.current = null;
+      }
+      if (localAudioTrackRef.current) {
+        localAudioTrackRef.current.stop();
+        localAudioTrackRef.current.close();
+        localAudioTrackRef.current = null;
+      }
+      
+      setIsSharing(false);
+      console.log('🛑 Stopped screen share');
+    } catch (err) {
+      console.error('Stop error:', err);
+      // Still cleanup even if unpublish fails
+      if (localVideoTrackRef.current) {
+        localVideoTrackRef.current.stop();
+        localVideoTrackRef.current.close();
+        localVideoTrackRef.current = null;
+      }
+      if (localAudioTrackRef.current) {
+        localAudioTrackRef.current.stop();
+        localAudioTrackRef.current.close();
+        localAudioTrackRef.current = null;
+      }
+      setIsSharing(false);
     }
-    if (localAudioTrackRef.current) {
-      localAudioTrackRef.current.stop();
-      localAudioTrackRef.current.close();
-      localAudioTrackRef.current = null;
-    }
-    setIsSharing(false);
   };
 
   return (
