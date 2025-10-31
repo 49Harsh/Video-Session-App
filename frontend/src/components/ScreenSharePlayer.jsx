@@ -6,70 +6,122 @@ AgoraRTC.setLogLevel(0);
 
 const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
   const [isSharing, setIsSharing] = useState(false);
-  const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
+  const [isWebcamOn, setIsWebcamOn] = useState(false);
+  const [hasRemoteScreen, setHasRemoteScreen] = useState(false);
+  const [hasRemoteCam, setHasRemoteCam] = useState(false);
   const [isConnecting, setIsConnecting] = useState(true);
   const [error, setError] = useState(null);
   
-  const clientRef = useRef(null);
+  const screenClientRef = useRef(null);  // Separate client for screen (host) or single client (viewer)
+  const webcamClientRef = useRef(null);  // Separate client for webcam (host only)
   const localVideoTrackRef = useRef(null);
   const localAudioTrackRef = useRef(null);
-  const remoteVideoContainerRef = useRef(null);
+  const webcamVideoTrackRef = useRef(null);
+  const webcamAudioTrackRef = useRef(null);
+  const remoteScreenContainerRef = useRef(null);
+  const remoteWebcamContainerRef = useRef(null);
   const localVideoContainerRef = useRef(null);
+  const webcamContainerRef = useRef(null);
+  
+  // Track which user is screen vs webcam
+  const remoteUsersRef = useRef({ screenUid: null, webcamUid: null });
 
   useEffect(() => {
     let mounted = true;
 
     const initAgora = async () => {
       try {
-        // Create Agora client
-        const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
-        clientRef.current = client;
+        // Helper to setup subscriptions for viewer
+        const setupClientEvents = (client) => {
+          client.on('user-published', async (user, mediaType) => {
+            console.log('📢 User published:', user.uid, mediaType);
+            await client.subscribe(user, mediaType);
+            console.log('✅ Subscribed to', mediaType);
 
-        // Event: User published (THIS IS WHERE VIEWERS GET THE SCREEN)
-        client.on('user-published', async (user, mediaType) => {
-          console.log('📢 User published:', user.uid, mediaType);
-
-          // Subscribe
-          await client.subscribe(user, mediaType);
-          console.log('✅ Subscribed to', mediaType);
-
-          if (mediaType === 'video') {
-            setHasRemoteVideo(true);
-            
-            // Get the remote video track
-            const remoteVideoTrack = user.videoTrack;
-            
-            // Wait for DOM
-            setTimeout(() => {
-              if (remoteVideoContainerRef.current && remoteVideoTrack) {
-                // Play video
-                remoteVideoTrack.play(remoteVideoContainerRef.current, { fit: 'contain' });
-                console.log('🎬 Video playing!');
+            if (mediaType === 'video') {
+              const remoteVideoTrack = user.videoTrack;
+              
+              // Decide based on stored users or order
+              let targetEl = null;
+              
+              // If we already know this user
+              if (user.uid === remoteUsersRef.current.screenUid) {
+                targetEl = remoteScreenContainerRef.current;
+                setHasRemoteScreen(true);
+              } else if (user.uid === remoteUsersRef.current.webcamUid) {
+                targetEl = remoteWebcamContainerRef.current;
+                setHasRemoteCam(true);
+              } else {
+                // New user - assign based on what's empty
+                if (!remoteUsersRef.current.screenUid) {
+                  // First user goes to screen
+                  targetEl = remoteScreenContainerRef.current;
+                  remoteUsersRef.current.screenUid = user.uid;
+                  setHasRemoteScreen(true);
+                  console.log('🖥️ Assigned to screen:', user.uid);
+                } else if (!remoteUsersRef.current.webcamUid) {
+                  // Second user goes to webcam
+                  targetEl = remoteWebcamContainerRef.current;
+                  remoteUsersRef.current.webcamUid = user.uid;
+                  setHasRemoteCam(true);
+                  console.log('📹 Assigned to webcam:', user.uid);
+                }
               }
-            }, 100);
-          }
 
-          if (mediaType === 'audio') {
-            user.audioTrack.play();
-            console.log('🔊 Audio playing!');
-          }
-        });
+              setTimeout(() => {
+                if (targetEl && remoteVideoTrack) {
+                  remoteVideoTrack.play(targetEl, { 
+                    fit: targetEl === remoteScreenContainerRef.current ? 'contain' : 'cover' 
+                  });
+                  console.log('🎬 Remote video playing in', targetEl.id);
+                }
+              }, 50);
+            }
 
-        // Event: User unpublished
-        client.on('user-unpublished', (user, mediaType) => {
-          console.log('📴 Unpublished:', mediaType);
-          if (mediaType === 'video') {
-            setHasRemoteVideo(false);
-          }
-        });
+            if (mediaType === 'audio') {
+              user.audioTrack.play();
+              console.log('🔊 Audio playing!');
+            }
+          });
 
-        // Join channel
-        const uid = await client.join(appId, channelName, token, null);
-        
-        if (!mounted) return;
-        
-        console.log('✅ Joined with UID:', uid);
-        setIsConnecting(false);
+          client.on('user-unpublished', (user, mediaType) => {
+            console.log('📴 Unpublished:', mediaType, user.uid);
+            if (mediaType === 'video') {
+              if (user.uid === remoteUsersRef.current.screenUid) {
+                setHasRemoteScreen(false);
+                remoteUsersRef.current.screenUid = null;
+                console.log('🖥️ Screen cleared');
+              } else if (user.uid === remoteUsersRef.current.webcamUid) {
+                setHasRemoteCam(false);
+                remoteUsersRef.current.webcamUid = null;
+                console.log('📹 Webcam cleared');
+              }
+            }
+          });
+        };
+
+        if (role === 'host') {
+          // Create two clients for host
+          const screenClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+          const webcamClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+          screenClientRef.current = screenClient;
+          webcamClientRef.current = webcamClient;
+
+          // Host join with fixed string UIDs to help viewers distinguish
+          const screenUid = await screenClient.join(appId, channelName, token, 'host-screen');
+          const webcamUid = await webcamClient.join(appId, channelName, token, 'host-cam');
+
+          console.log('✅ Host joined - Screen UID:', screenUid, 'Webcam UID:', webcamUid);
+          setIsConnecting(false);
+        } else {
+          // Viewer: single client only
+          const viewerClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+          screenClientRef.current = viewerClient;
+          setupClientEvents(viewerClient);
+          const viewerUid = await viewerClient.join(appId, channelName, token, null);
+          console.log('✅ Viewer joined with UID:', viewerUid);
+          setIsConnecting(false);
+        }
 
       } catch (err) {
         console.error('❌ Error:', err);
@@ -87,9 +139,15 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
       mounted = false;
       if (localVideoTrackRef.current) localVideoTrackRef.current.close();
       if (localAudioTrackRef.current) localAudioTrackRef.current.close();
-      if (clientRef.current) {
-        clientRef.current.leave();
-        clientRef.current.removeAllListeners();
+      if (webcamVideoTrackRef.current) webcamVideoTrackRef.current.close();
+      if (webcamAudioTrackRef.current) webcamAudioTrackRef.current.close();
+      if (screenClientRef.current) {
+        screenClientRef.current.removeAllListeners();
+        screenClientRef.current.leave();
+      }
+      if (webcamClientRef.current) {
+        webcamClientRef.current.removeAllListeners();
+        webcamClientRef.current.leave();
       }
     };
   }, [channelName, appId, token]);
@@ -120,12 +178,12 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
         console.warn('No mic');
       }
 
-      // Publish
+      // Publish to screen client
       const tracks = [localVideoTrackRef.current];
       if (localAudioTrackRef.current) tracks.push(localAudioTrackRef.current);
 
-      await clientRef.current.publish(tracks);
-      console.log('✅ Published!');
+      await screenClientRef.current.publish(tracks);
+      console.log('✅ Screen published!');
 
       setIsSharing(true);
 
@@ -141,6 +199,89 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
     }
   };
 
+  const startWebcam = async () => {
+    try {
+      setError(null);
+      console.log('📹 Starting webcam...');
+
+      // Create camera video track
+      const videoTrack = await AgoraRTC.createCameraVideoTrack({
+        encoderConfig: '720p_2'
+      });
+      webcamVideoTrackRef.current = videoTrack;
+
+      // Create microphone audio track
+      try {
+        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        webcamAudioTrackRef.current = audioTrack;
+      } catch (err) {
+        console.warn('No mic');
+      }
+
+      // Play local webcam preview
+      if (webcamContainerRef.current) {
+        videoTrack.play(webcamContainerRef.current, { fit: 'cover' });
+        console.log('🎬 Webcam preview playing!');
+      }
+
+      // Publish to webcam client
+      const tracks = [webcamVideoTrackRef.current];
+      if (webcamAudioTrackRef.current) tracks.push(webcamAudioTrackRef.current);
+
+      await webcamClientRef.current.publish(tracks);
+      console.log('✅ Webcam published!');
+
+      setIsWebcamOn(true);
+
+    } catch (err) {
+      console.error('❌ Webcam error:', err);
+      setError('Failed to start webcam: ' + err.message);
+    }
+  };
+
+  const stopWebcam = async () => {
+    try {
+      // Unpublish webcam tracks
+      const tracksToUnpublish = [];
+      if (webcamVideoTrackRef.current) tracksToUnpublish.push(webcamVideoTrackRef.current);
+      if (webcamAudioTrackRef.current) tracksToUnpublish.push(webcamAudioTrackRef.current);
+      
+      if (tracksToUnpublish.length > 0 && webcamClientRef.current) {
+        await webcamClientRef.current.unpublish(tracksToUnpublish);
+        console.log('✅ Unpublished webcam');
+      }
+
+      // Stop and close tracks
+      if (webcamVideoTrackRef.current) {
+        webcamVideoTrackRef.current.stop();
+        webcamVideoTrackRef.current.close();
+        webcamVideoTrackRef.current = null;
+      }
+      if (webcamAudioTrackRef.current) {
+        webcamAudioTrackRef.current.stop();
+        webcamAudioTrackRef.current.close();
+        webcamAudioTrackRef.current = null;
+      }
+      
+      setIsWebcamOn(false);
+      console.log('🛑 Stopped webcam');
+    } catch (err) {
+      console.error('Stop webcam error:', err);
+      // Still cleanup
+      if (webcamVideoTrackRef.current) {
+        webcamVideoTrackRef.current.stop();
+        webcamVideoTrackRef.current.close();
+        webcamVideoTrackRef.current = null;
+      }
+      if (webcamAudioTrackRef.current) {
+        webcamAudioTrackRef.current.stop();
+        webcamAudioTrackRef.current.close();
+        webcamAudioTrackRef.current = null;
+      }
+      setIsWebcamOn(false);
+    }
+  };
+
   const stopScreenShare = async () => {
     try {
       // First unpublish tracks from Agora
@@ -148,9 +289,9 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
       if (localVideoTrackRef.current) tracksToUnpublish.push(localVideoTrackRef.current);
       if (localAudioTrackRef.current) tracksToUnpublish.push(localAudioTrackRef.current);
       
-      if (tracksToUnpublish.length > 0 && clientRef.current) {
-        await clientRef.current.unpublish(tracksToUnpublish);
-        console.log('✅ Unpublished tracks');
+      if (tracksToUnpublish.length > 0 && screenClientRef.current) {
+        await screenClientRef.current.unpublish(tracksToUnpublish);
+        console.log('✅ Unpublished screen tracks');
       }
 
       // Then stop and close tracks
@@ -193,10 +334,21 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
             disabled={isConnecting}
             className={isSharing ? 'stop-button' : 'start-button'}
           >
-            {isSharing ? '⏹ Stop Sharing' : '▶ Start Sharing'}
+            {isSharing ? '⏹ Stop Screen' : '🖥️ Share Screen'}
           </button>
+          
+          <button
+            onClick={isWebcamOn ? stopWebcam : startWebcam}
+            disabled={isConnecting}
+            className={isWebcamOn ? 'stop-button' : 'start-button'}
+            style={{ marginLeft: '10px' }}
+          >
+            {isWebcamOn ? '⏹ Stop Webcam' : '📹 Start Webcam'}
+          </button>
+          
           <p className="status-text">
-            Status: {isConnecting ? 'Connecting...' : isSharing ? '🟢 Sharing' : '🔴 Not Sharing'}
+            Screen: {isSharing ? '🟢 Sharing' : '🔴 Off'} | 
+            Webcam: {isWebcamOn ? '🟢 On' : '🔴 Off'}
           </p>
         </div>
       )}
@@ -205,11 +357,11 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
         <div className="error-message">⚠️ {error}</div>
       )}
 
-      <div className="remote-videos">
-        {/* Viewer's remote video */}
+      <div className="remote-videos" style={{ position: 'relative' }}>
+        {/* Viewer: remote screen big */}
         <div
-          ref={remoteVideoContainerRef}
-          id="remote-video"
+          ref={remoteScreenContainerRef}
+          id="remote-screen"
           style={{
             width: '100%',
             height: '600px',
@@ -218,7 +370,24 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
           }}
         />
 
-        {/* Host's local preview */}
+        {/* Viewer: remote webcam PiP */}
+        <div
+          ref={remoteWebcamContainerRef}
+          id="remote-webcam"
+          style={{
+            width: '300px',
+            height: '225px',
+            backgroundColor: '#000',
+            position: 'absolute',
+            bottom: '20px',
+            right: '20px',
+            borderRadius: '10px',
+            border: '2px solid #fff',
+            display: role === 'viewer' && hasRemoteCam ? 'block' : 'none'
+          }}
+        />
+
+        {/* Host's local screen preview */}
         <div
           ref={localVideoContainerRef}
           id="local-video"
@@ -229,17 +398,34 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
             display: role === 'host' && isSharing ? 'block' : 'none'
           }}
         />
+
+        {/* Host's local webcam preview */}
+        <div
+          ref={webcamContainerRef}
+          id="webcam-video"
+          style={{
+            width: '300px',
+            height: '225px',
+            backgroundColor: '#000',
+            position: 'absolute',
+            bottom: '20px',
+            right: '20px',
+            borderRadius: '10px',
+            border: '2px solid #fff',
+            display: role === 'host' && isWebcamOn ? 'block' : 'none'
+          }}
+        />
         
-        {role === 'viewer' && !hasRemoteVideo && !isConnecting && (
+        {role === 'viewer' && !hasRemoteScreen && !hasRemoteCam && !isConnecting && (
           <div className="waiting-message">
             <h2>⏳ Waiting for host...</h2>
-            <p>Screen will appear here</p>
+            <p>Video will appear here</p>
           </div>
         )}
 
-        {role === 'host' && !isSharing && !isConnecting && (
+        {role === 'host' && !isSharing && !isWebcamOn && !isConnecting && (
           <div className="waiting-message">
-            <h2>Click "Start Sharing"</h2>
+            <h2>Click "Share Screen" or "Start Webcam"</h2>
           </div>
         )}
       </div>
