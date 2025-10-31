@@ -14,6 +14,7 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
   const localVideoTrackRef = useRef(null);
   const localAudioTrackRef = useRef(null);
   const remoteVideoContainerRef = useRef(null);
+  const localVideoContainerRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -105,6 +106,12 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
 
       localVideoTrackRef.current = screenTrack;
 
+      // Play local preview for host
+      if (localVideoContainerRef.current) {
+        screenTrack.play(localVideoContainerRef.current, { fit: 'contain' });
+        console.log('🎬 Local preview playing!');
+      }
+
       // Create audio track
       try {
         const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
@@ -170,6 +177,7 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
       )}
 
       <div className="remote-videos">
+        {/* Viewer's remote video */}
         <div
           ref={remoteVideoContainerRef}
           id="remote-video"
@@ -178,6 +186,18 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
             height: '600px',
             backgroundColor: '#000',
             display: role === 'viewer' ? 'block' : 'none'
+          }}
+        />
+
+        {/* Host's local preview */}
+        <div
+          ref={localVideoContainerRef}
+          id="local-video"
+          style={{
+            width: '100%',
+            height: '600px',
+            backgroundColor: '#000',
+            display: role === 'host' && isSharing ? 'block' : 'none'
           }}
         />
         
