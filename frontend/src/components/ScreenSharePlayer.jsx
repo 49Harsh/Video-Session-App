@@ -157,7 +157,7 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
       setError(null);
       console.log('🖥️ Starting screen share...');
 
-      // Create screen track
+      // Create screen track (VIDEO ONLY - no audio)
       const screenTrack = await AgoraRTC.createScreenVideoTrack({
         encoderConfig: '1080p_1'
       }, 'disable');
@@ -170,20 +170,9 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
         console.log('🎬 Local preview playing!');
       }
 
-      // Create audio track
-      try {
-        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        localAudioTrackRef.current = audioTrack;
-      } catch (err) {
-        console.warn('No mic');
-      }
-
-      // Publish to screen client
-      const tracks = [localVideoTrackRef.current];
-      if (localAudioTrackRef.current) tracks.push(localAudioTrackRef.current);
-
-      await screenClientRef.current.publish(tracks);
-      console.log('✅ Screen published!');
+      // Publish ONLY video to screen client (no mic audio)
+      await screenClientRef.current.publish([localVideoTrackRef.current]);
+      console.log('✅ Screen published (video only)!');
 
       setIsSharing(true);
 
@@ -284,26 +273,17 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
 
   const stopScreenShare = async () => {
     try {
-      // First unpublish tracks from Agora
-      const tracksToUnpublish = [];
-      if (localVideoTrackRef.current) tracksToUnpublish.push(localVideoTrackRef.current);
-      if (localAudioTrackRef.current) tracksToUnpublish.push(localAudioTrackRef.current);
-      
-      if (tracksToUnpublish.length > 0 && screenClientRef.current) {
-        await screenClientRef.current.unpublish(tracksToUnpublish);
-        console.log('✅ Unpublished screen tracks');
+      // Unpublish screen video
+      if (localVideoTrackRef.current && screenClientRef.current) {
+        await screenClientRef.current.unpublish([localVideoTrackRef.current]);
+        console.log('✅ Unpublished screen video');
       }
 
-      // Then stop and close tracks
+      // Close video track
       if (localVideoTrackRef.current) {
         localVideoTrackRef.current.stop();
         localVideoTrackRef.current.close();
         localVideoTrackRef.current = null;
-      }
-      if (localAudioTrackRef.current) {
-        localAudioTrackRef.current.stop();
-        localAudioTrackRef.current.close();
-        localAudioTrackRef.current = null;
       }
       
       setIsSharing(false);
@@ -315,11 +295,6 @@ const ScreenSharePlayer = ({ channelName, role, appId, token }) => {
         localVideoTrackRef.current.stop();
         localVideoTrackRef.current.close();
         localVideoTrackRef.current = null;
-      }
-      if (localAudioTrackRef.current) {
-        localAudioTrackRef.current.stop();
-        localAudioTrackRef.current.close();
-        localAudioTrackRef.current = null;
       }
       setIsSharing(false);
     }
