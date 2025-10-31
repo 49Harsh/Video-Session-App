@@ -2,7 +2,8 @@ import { useState } from 'react'
 import axios from 'axios'
 import ScreenSharePlayer from '../components/ScreenSharePlayer'
 
-const API_URL = 'http://localhost:5000/api'
+// const API_URL = 'http://localhost:5000/api'
+const API_URL = 'https://video-session-app.onrender.com/api'
 
 function AdminPage() {
   const [session, setSession] = useState(null)
